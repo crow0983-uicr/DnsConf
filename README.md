@@ -1,140 +1,33 @@
-🌐 Languages: [󠁧󠁢󠁥󠁮󠁧󠁿**English**](README.md) | [**Русский**](README.ru.md)
+# Broken Arrow: реалистичный мод (рабочее название)
 
-# DNS Block&Redirect Configurer
-**Allows to set Redirect and Block rules to your Cloudflare and NextDNS accounts.**
+Мод для RTS **Broken Arrow**, который сдвигает игру от аркадного баланса к реалистичному:
 
-**Ready-to-run via GitHub Actions.** [Video guide](#step-by-step-video-guide-redirect-for-nextdns)
+- **Реальные дальности.** Оружие, сенсоры и средства связи работают на дистанциях, близких к реальным ТТХ.
+- **Огромные карты.** Масштаб оперативно-тактический, а не «пятачок на 2×2 км».
+- **Логистика.** Боеприпасы, топливо, снабжение и линии подвоза.
+- **Реалистичное восприятие поля боя.** Разведка, обнаружение, маскировка, туман войны.
 
-[General comparison: Cloudflare vs NextDNS](#cloudflare-vs-nextdns)
+> Статус: **концепция / исследование.** Кода и игровых файлов пока нет.
 
-[Setup credentials: Cloudflare](#cloudflare-credentials-setup)
+## Структура репозитория
 
-[Setup credentials: NextDNS](#nextdns-credentials-setup)
+| Путь | Что здесь |
+|---|---|
+| [`docs/concept.md`](docs/concept.md) | Концепция и столпы дизайна мода |
+| [`docs/modding-research.md`](docs/modding-research.md) | Что известно о моддинге Broken Arrow и что нужно проверить |
+| [`data/`](data/) | Таблицы с реальными ТТХ (источник истины для баланса) |
+| [`maps/`](maps/) | Карты: концепты, исходники, заметки |
+| [`mod/`](mod/) | Собственно файлы мода в формате игры |
 
-[Setup profile](#setup-profile)
+## Дорожная карта
 
-[Setup data sources](#setup-data-sources)
+1. **Исследование.** Выяснить, что именно позволяет менять игра: Workshop, редактор сценариев, файлы юнитов, ограничения на размер карт и дальности. См. [`docs/modding-research.md`](docs/modding-research.md).
+2. **Прототип дальностей.** Поменять ТТХ нескольких юнитов и проверить, как движок справляется с большими дистанциями (камера, ИИ, видимость).
+3. **Большая карта.** Сделать одну тестовую карту максимального размера, который поддерживает движок.
+4. **Логистика.** Снабжение, расход боеприпасов и топлива, тыловые юниты.
+5. **Полный пересмотр баланса** всех юнитов по таблицам из `data/`.
 
-[GitHub Actions](#github-actions-setup)
+## Правила
 
-## Cloudflare vs NextDNS
-
-Both providers have free plans, but there are some limitations
-
-### Cloudflare limitations
-+ 100 000 DNS requests per day
-+ Ipv4 DNS requests are restricted by the only one IP. But you are free to use other methods: DoH, DoT, Ipv6
-### NextDNS limitations
-+ 300 000 DNS requests per month (still more than enough for personal use)
-+ Slow API speed is restricted by 60 requests per minute. Takes significantly more time for script to save settings
-
-### Cloudflare credentials setup
-1) After signing up into a **Cloudflare**, navigate to _Zero Trust_ tab and create an account.
-- Free Plan has decent limits, so just choose it.
-- Skip providing payment method step by choosing _Cancel and exit_ (top right corner)
-- Go back to _Zero Trust_ tab
-
-2) Create a **Cloudflare API token**, from https://dash.cloudflare.com/profile/api-tokens
-
-with 2 permissions:
-
-    Account.Zero Trust : Edit
-
-    Account.Account Firewall Access Rules : Edit
-
-Set API token to **environment variable** `AUTH_SECRET`
-
-3) Get your **Account ID** from : https://dash.cloudflare.com/?to=/:account/workers
-
-Set **Account ID** to **environment variable** `CLIENT_ID`
-
-### NextDNS credentials setup
-1) Generate **API KEY**, from https://my.nextdns.io/account and set as **environment variable** `AUTH_SECRET`
-
-2) Click on **NextDNS** logo. On the opened page, copy ID from Endpoints section.
-   Set it as **environment variable** `CLIENT_ID`
-
-
-## Setup profile
-Set **environment variable** `DNS` with DNS provider name (**Cloudflare** or **NextDNS**)
-
-## Setup data sources
-Each data source must be a link to a hosts file, e.g. https://raw.githubusercontent.com/Internet-Helper/GeoHideDNS/refs/heads/main/hosts/hosts
-
-You can provide multiple sources split by coma:
-https://first.com/hosts,https://second.com/hosts
-
-### 1) Setup Redirects
-Set sources to **environment variable** `REDIRECT`
-
-Script will parse sources, filtering out redirects to `0.0.0.0` and `127.0.0.1`
-
-Thus, parsing lines:
-
-    0.0.0.0 domain.to.block
-    1.2.3.4 domain.to.redirect
-    127.0.0.1 another.to.block
-
-will keep only `1.2.3.4 domain.to.redirect` for the further redirect processing.
-
-
-+ Redirect priority follows sources order. If domain appears more than one time, the first only IP will be applied.
-
-
-### 2) Setup Blocklist
-Set sources to **environment variable** `BLOCK`
-
-Script will parse sources, keeping only redirects to `0.0.0.0` and `127.0.0.1`.
-
-Thus, parsing lines
-
-    0.0.0.0 domain.to.block
-    1.2.3.4 domain.to.redirect
-    127.0.0.1 another.to.block
-
-will keep only `domain.to.block` and `another.to.block` for the further block processing.
-
-+ You may want to provide the same source for both `BLOCK` and `REDIRECT` for **Cloudflare**.
-+ For **NextDNS**, the best option might be to set `REDIRECT` only, and then manually choose any blocklists at the _Privacy_ tab.
-
-## Script Behaviour
-### Cloudflare
-Previously generated data will be removed. Script recognizes old data by marks:
-
-
-+ Name prefix for List: **_Blocked websites by script_** and **_Override websites by script_**
-+ Name prefix for Rule: **_Rules set by script_**
-+ Different **_Session id_**. **_Session id_** is stored in a description field.
-
-
-After removing old data, new lists and rules will be generated and applied.
-
-If you want to clear **Cloudflare** block/redirect settings, launch the script without providing sources in related **environment variables**. E.g. providing no value for **environment variable** `BLOCK` will cause removing old related data: lists and rules used to setup blocks.
-
-### NextDNS
-
-For `REDIRECT`:
-+ Existing domain will be updated if redirect IP has changed
-+ If new domains are provided, they will be added
-+ The rest redirect settings are kept untouched
-
-For `BLOCK`:
-+ If new domains are provided, they will be added
-+ The rest block settings are kept untouched
-
-Previously generated data is removed **ONLY** when both `BLOCK` and `REDIRECT` sources were not provided.
-
-## GitHub Actions setup
-
-#### Step-by-step video guide: [REDIRECT for NextDNS](https://www.youtube.com/watch?v=vbAXM_xAL5I)
-
-#### Steps
-
-1) Fork repository
-2) Go _Settings_ => _Environments_
-3) Create _New environment_ with name `DNS`
-4) Provide `AUTH_SECRET` and `CLIENT_ID` to **Environment secrets**
-5) Provide `DNS`,`REDIRECT` and `BLOCK` to **Environment variables**
-
-+ The action will be launched every day at **01:30 UTC**. To set another time, change cron at `.github/workflows/github_action.yml`
-+ You can run the action manually via `Run workflow` button: switch to _Actions_ tab and choose workflow named **DNS Block&Redirect Configurer cron task**
+- Каждое число в `data/` должно сопровождаться **источником** (открытые справочники, документация производителя и т. п.).
+- Файлы самой игры (ассеты, исходные данные разработчика) **в репозиторий не коммитим**, только наши изменения.
